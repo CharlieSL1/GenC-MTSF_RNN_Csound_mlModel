@@ -7,6 +7,13 @@ import os
 from pathlib import Path
 import pandas as pd
 
+# Set device
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+print(f"Using device: {device}")
+if torch.cuda.is_available():
+    print(f"CUDA device: {torch.cuda.get_device_name(0)}")
+    print(f"CUDA memory: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.1f} GB")
+
 def create_mtsf_model(input_size, hidden_size, output_size):
     """Create MTSF model (same as in train.py)"""
     class MTSFModel(nn.Module):
@@ -52,8 +59,8 @@ def load_trained_model():
         output_size = len(param_names)
         
         # Create and load model
-        model = create_mtsf_model(input_size, hidden_size, output_size)
-        model.load_state_dict(torch.load(model_path))
+        model = create_mtsf_model(input_size, hidden_size, output_size).to(device)
+        model.load_state_dict(torch.load(model_path, map_location=device))
         model.eval()
         
         return model, param_names, len(audio_data)
@@ -76,10 +83,13 @@ def predict_parameters(model, audio_file_path, sequence_length):
         # Add batch and channel dimensions
         audio_tensor = audio_tensor.unsqueeze(0).unsqueeze(-1)  # (1, seq_len, 1)
         
+        # Move to device
+        audio_tensor = audio_tensor.to(device)
+        
         # Predict
         with torch.no_grad():
             forecast, _ = model(audio_tensor)
-            return forecast.squeeze().numpy()
+            return forecast.squeeze().cpu().numpy()  # Move back to CPU for numpy conversion
     
     except Exception as e:
         print(f"Error predicting parameters for {audio_file_path}: {e}")

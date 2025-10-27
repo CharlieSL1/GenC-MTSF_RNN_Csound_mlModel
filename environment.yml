@@ -5,9 +5,9 @@ channels:
   - defaults
 dependencies:
   - python=3.12
-  - pytorch>=2.0.0
-  - torchvision>=0.15.0
-  - torchaudio>=2.0.0
+  - pytorch-gpu>=2.0.0  # Use pytorch-gpu for CUDA support
+  - torchvision-gpu>=0.15.0
+  - torchaudio-gpu>=2.0.0
   - numpy>=1.21.0
   - scikit-learn>=1.0.0
   - pandas>=1.3.0

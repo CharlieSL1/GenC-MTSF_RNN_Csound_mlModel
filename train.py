@@ -9,6 +9,13 @@ import soundfile as sf
 from pathlib import Path
 import json
 
+# Set device
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+print(f"Using device: {device}")
+if torch.cuda.is_available():
+    print(f"CUDA device: {torch.cuda.get_device_name(0)}")
+    print(f"CUDA memory: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.1f} GB")
+
 def load_dataset():
     """Load audio files and parameters from Dataset folder"""
     dataset_path = Path("Dataset")
@@ -153,8 +160,8 @@ if X is not None and y is not None:
     hidden_size = 64
     output_size = y.shape[-1]  # Number of parameters
     
-    # Create model
-    model = create_mtsf_model(input_size, hidden_size, output_size)
+    # Create model and move to device
+    model = create_mtsf_model(input_size, hidden_size, output_size).to(device)
     
     # Loss and optimizer
     loss_fn = nn.MSELoss()  # Regression loss for parameter prediction
@@ -169,6 +176,9 @@ if X is not None and y is not None:
         total_loss = 0
         
         for batch_x, batch_y in train_loader:
+            # Move data to device
+            batch_x, batch_y = batch_x.to(device), batch_y.to(device)
+            
             optimizer.zero_grad()
             
             # Forward pass
@@ -189,6 +199,9 @@ if X is not None and y is not None:
     with torch.no_grad():
         test_loss = 0
         for batch_x, batch_y in test_loader:
+            # Move data to device
+            batch_x, batch_y = batch_x.to(device), batch_y.to(device)
+            
             forecast, _ = model(batch_x)
             loss = loss_fn(forecast, batch_y)
             test_loss += loss.item()
@@ -216,11 +229,14 @@ def predict_parameters(model, audio_file_path):
         # Add batch and channel dimensions
         audio_tensor = audio_tensor.unsqueeze(0).unsqueeze(-1)  # (1, seq_len, 1)
         
+        # Move to device
+        audio_tensor = audio_tensor.to(device)
+        
         # Predict
         model.eval()
         with torch.no_grad():
             forecast, _ = model(audio_tensor)
-            return forecast.squeeze().numpy()
+            return forecast.squeeze().cpu().numpy()  # Move back to CPU for numpy conversion
     
     except Exception as e:
         print(f"Error predicting parameters for {audio_file_path}: {e}")
